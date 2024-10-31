@@ -1,50 +1,46 @@
-# 割り勘アプリ (Warikan App)
+Try it here first
+https://frabjous-chimera-e9aefe.netlify.app/
 
-シンプルで使いやすい割り勘計算アプリケーション。グループでの支払いを簡単に管理・精算できます。
+Warikan App (Split Bill App)
+A simple and user-friendly split bill calculation application that makes it easy to manage and settle payments within groups.
 
-## 主な機能
+Key Features
+👥 Member Management: Easily add or remove group members
+💰 Payment Record: Record who paid how much and for whom
+🔄 Settlement Calculation: Automatically calculate the optimal settlement method
+💾 Data Storage: Access settlement information later with payment codes
+⚖️ Flexible Distribution: Supports two types of payments - equal split and per capita
+🧮 Rounding Options: Choose from rounding down, up, or to the nearest unit
+Tech Stack
+React + TypeScript
+Tailwind CSS
+IndexedDB (for data persistence)
+Lucide Icons
+How to Use
+Register Members
 
-- 👥 メンバー管理：グループのメンバーを簡単に追加・削除
-- 💰 支払い記録：誰が、いくら、誰のために支払ったかを記録
-- 🔄 精算計算：最適な精算方法を自動計算
-- 💾 データ保存：支払い情報コードで後から精算内容を参照可能
-- ⚖️ 柔軟な分配：均等割りと人数分の2種類の支払いタイプに対応
-- 🧮 端数処理：切り捨て、切り上げ、四捨五入に対応
+Enter and add the names of group members
+Register at least two members to proceed to the next step
+Record Payments
 
-## 技術スタック
+Select payment date, amount, and payer
+Choose payment type (equal split/per capita)
+Check the applicable members
+Edit or delete payment details as needed
+Settlement
 
-- React + TypeScript
-- Tailwind CSS
-- IndexedDB (データ永続化)
-- Lucide Icons
+View payment summary and optimal settlement method
+Select rounding method (down/up/nearest)
+Copy settlement results to clipboard
+Access past records using payment information codes
+Running Locally
+bash
 
-## 使い方
-
-1. メンバー登録
-   - グループメンバーの名前を入力して追加
-   - 2名以上のメンバーを登録すると次のステップへ進めます
-
-2. 支払い登録
-   - 支払い日、金額、支払った人を選択
-   - 支払いタイプ（均等割り/人数分）を選択
-   - 対象者をチェック
-   - 必要に応じて支払い内容の編集・削除が可能
-
-3. 精算
-   - 支払いサマリと最適な精算方法を表示
-   - 端数処理方法を選択可能（切り捨て/切り上げ/四捨五入）
-   - 精算結果をクリップボードにコピー可能
-   - 支払い情報コードで後から内容を参照可能
-
-## ローカルでの実行
-
-```bash
-# 依存パッケージのインストール
+# Install dependencies
 npm install
 
-# 開発サーバーの起動
+# Start development server
 npm run dev
 
-# ビルド
+# Build
 npm run build
-```
