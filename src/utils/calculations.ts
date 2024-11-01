@@ -89,7 +89,7 @@ export function calculateSettlements(
 
   // 端数調整を適用
   roundingAdjustments.forEach(adjustment => {
-    if (adjustment.amount > 0) {
+    if (adjustment.amount !== 0) {
       balances.set(
         adjustment.memberId,
         (balances.get(adjustment.memberId) || 0) - Math.round(adjustment.amount)
@@ -119,12 +119,28 @@ export function calculateSettlements(
             from: members.find(m => m.id === debtor.id)!.name,
             to: members.find(m => m.id === creditor.id)!.name,
             amount: amount,
+            isRoundingAdjustment: false
           });
         }
         remainingDebt -= amount;
         creditor.balance -= amount;
       }
     });
+  });
+
+  // 端数調整の精算を追加
+  roundingAdjustments.forEach(adjustment => {
+    if (adjustment.amount !== 0) {
+      const member = members.find(m => m.id === adjustment.memberId);
+      if (member) {
+        settlements.push({
+          from: member.name,
+          to: '端数調整',
+          amount: Math.abs(adjustment.amount),
+          isRoundingAdjustment: true
+        });
+      }
+    }
   });
 
   return settlements;

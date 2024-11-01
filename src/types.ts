@@ -10,13 +10,14 @@ export interface Expense {
   amount: number;
   beneficiaryIds: string[];
   splitType: 'equal' | 'multiply';
-  note?: string; // Optional note field
+  note?: string;
 }
 
 export interface Settlement {
   from: string;
   to: string;
   amount: number;
+  isRoundingAdjustment?: boolean;
 }
 
 export type RoundingMethod = 'floor' | 'ceil' | 'round';
