@@ -9,7 +9,8 @@ export interface Expense {
   payerId: string;
   amount: number;
   beneficiaryIds: string[];
-  splitType: 'equal' | 'multiply'; // equal: 均等割り (タクシーなど), multiply: 人数分 (チケットなど)
+  splitType: 'equal' | 'multiply';
+  note?: string; // Optional note field
 }
 
 export interface Settlement {
@@ -19,3 +20,22 @@ export interface Settlement {
 }
 
 export type RoundingMethod = 'floor' | 'ceil' | 'round';
+
+export interface PaymentData {
+  code: string;
+  members: Member[];
+  expenses: Expense[];
+  createdAt: number;
+  lastAccessedAt: number;
+  deletedAt?: number;
+}
+
+export interface ConsentData {
+  deviceId: string;
+  consentedAt: number;
+}
+
+export interface DatabaseSchema {
+  payments: PaymentData;
+  consents: ConsentData;
+}

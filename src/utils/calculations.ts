@@ -1,6 +1,12 @@
 import { Member, Expense, Settlement, RoundingMethod } from '../types';
 
+interface RoundingAdjustment {
+  memberId: string;
+  amount: number;
+}
+
 function roundAmount(amount: number, method: RoundingMethod): number {
+  // Always round to whole numbers
   switch (method) {
     case 'floor':
       return Math.floor(amount);
@@ -37,14 +43,14 @@ export function getRoundingDifference(
     }
   });
 
-  return roundedTotal - Math.floor(exactTotal);
+  return Math.abs(Math.round(roundedTotal - exactTotal));
 }
 
 export function calculateSettlements(
   members: Member[],
   expenses: Expense[],
   roundingMethod: RoundingMethod,
-  roundingAdjusterId?: string
+  roundingAdjustments: RoundingAdjustment[] = []
 ): Settlement[] {
   // 各メンバーの収支を計算
   const balances = new Map<string, number>();
@@ -65,12 +71,13 @@ export function calculateSettlements(
       beneficiaryIds.forEach(beneficiaryId => {
         if (beneficiaryId === payer) {
           const othersCount = beneficiaryIds.filter(id => id !== payer).length;
+          const amount = Math.round(roundAmount(amountPerPerson * othersCount, roundingMethod));
           balances.set(
             payer,
-            (balances.get(payer) || 0) + roundAmount(amountPerPerson * othersCount, roundingMethod)
+            (balances.get(payer) || 0) + amount
           );
         } else {
-          const amount = roundAmount(amountPerPerson, roundingMethod);
+          const amount = Math.round(roundAmount(amountPerPerson, roundingMethod));
           balances.set(
             beneficiaryId,
             (balances.get(beneficiaryId) || 0) - amount
@@ -80,25 +87,24 @@ export function calculateSettlements(
     }
   });
 
-  // 端数調整
-  if (roundingMethod !== 'floor' && roundingAdjusterId) {
-    const difference = getRoundingDifference(members, expenses, roundingMethod);
-    if (difference > 0) {
+  // 端数調整を適用
+  roundingAdjustments.forEach(adjustment => {
+    if (adjustment.amount > 0) {
       balances.set(
-        roundingAdjusterId,
-        (balances.get(roundingAdjusterId) || 0) - difference
+        adjustment.memberId,
+        (balances.get(adjustment.memberId) || 0) - Math.round(adjustment.amount)
       );
     }
-  }
+  });
 
   // 精算リストを作成
   const settlements: Settlement[] = [];
   const debtors = members.filter(m => (balances.get(m.id) || 0) < 0)
-    .map(m => ({ id: m.id, balance: balances.get(m.id) || 0 }))
+    .map(m => ({ id: m.id, balance: Math.round(balances.get(m.id) || 0) }))
     .sort((a, b) => a.balance - b.balance);
 
   const creditors = members.filter(m => (balances.get(m.id) || 0) > 0)
-    .map(m => ({ id: m.id, balance: balances.get(m.id) || 0 }))
+    .map(m => ({ id: m.id, balance: Math.round(balances.get(m.id) || 0) }))
     .sort((a, b) => b.balance - a.balance);
 
   // 債務者から債権者への支払いを計算
@@ -107,7 +113,7 @@ export function calculateSettlements(
     
     creditors.forEach(creditor => {
       if (remainingDebt > 0 && creditor.balance > 0) {
-        const amount = Math.min(remainingDebt, creditor.balance);
+        const amount = Math.round(Math.min(remainingDebt, creditor.balance));
         if (amount >= 1) {
           settlements.push({
             from: members.find(m => m.id === debtor.id)!.name,

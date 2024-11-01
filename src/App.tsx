@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlusCircle, Receipt, Calculator, Search } from 'lucide-react';
 import MemberList from './components/MemberList';
 import ExpenseForm from './components/ExpenseForm';
 import SettlementView from './components/SettlementView';
+import ConsentDialog from './components/ConsentDialog';
 import { Member, Expense, Settlement, RoundingMethod } from './types';
 import { calculateSettlements } from './utils/calculations';
-import { savePaymentData, getPaymentData } from './utils/db';
+import { savePaymentData, getPaymentData, initDB, saveConsent, getConsent } from './utils/db';
 
 function App() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -15,28 +16,84 @@ function App() {
   const [paymentCode, setPaymentCode] = useState<string>();
   const [searchCode, setSearchCode] = useState('');
   const [roundingMethod, setRoundingMethod] = useState<RoundingMethod>('round');
+  const [error, setError] = useState<string>();
+  const [showConsent, setShowConsent] = useState(true);
+  const [hasConsented, setHasConsented] = useState(false);
+
+  // 初期化時に同意状態を確認
+  useEffect(() => {
+    const checkConsent = async () => {
+      try {
+        await initDB();
+        const deviceId = localStorage.getItem('deviceId') || crypto.randomUUID();
+        localStorage.setItem('deviceId', deviceId);
+        
+        const consent = await getConsent(deviceId);
+        if (consent) {
+          setShowConsent(false);
+          setHasConsented(true);
+        }
+      } catch (err) {
+        console.error('Failed to check consent:', err);
+      }
+    };
+    checkConsent();
+  }, []);
+
+  const handleConsent = async () => {
+    try {
+      const deviceId = localStorage.getItem('deviceId');
+      if (deviceId) {
+        await saveConsent(deviceId);
+        setShowConsent(false);
+        setHasConsented(true);
+      }
+    } catch (err) {
+      console.error('Failed to save consent:', err);
+    }
+  };
 
   const calculateFinalSettlement = async () => {
     const calculatedSettlements = calculateSettlements(members, expenses, roundingMethod);
     setSettlements(calculatedSettlements);
     setStep('settlement');
 
-    const code = await savePaymentData(members, expenses, paymentCode);
-    setPaymentCode(code);
+    try {
+      const code = await savePaymentData(members, expenses, paymentCode);
+      setPaymentCode(code);
+    } catch (err) {
+      console.error('Failed to save payment data:', err);
+      setError('データの保存に失敗しました');
+    }
   };
 
   const handleSearch = async () => {
     if (!searchCode.trim()) return;
 
-    const data = await getPaymentData(searchCode.trim());
-    if (data) {
-      setMembers(data.members);
-      setExpenses(data.expenses);
-      setPaymentCode(data.code);
-      setStep('expenses');
-      setSearchCode('');
+    try {
+      const data = await getPaymentData(searchCode.trim());
+      if (data) {
+        setMembers(data.members);
+        setExpenses(data.expenses);
+        setPaymentCode(data.code);
+        setStep('expenses');
+        setSearchCode('');
+      } else {
+        setError('指定された支払い情報が見つかりませんでした');
+      }
+    } catch (err) {
+      console.error('Failed to load payment data:', err);
+      setError('データの読み込みに失敗しました');
     }
   };
+
+  if (showConsent) {
+    return <ConsentDialog onConsent={handleConsent} />;
+  }
+
+  if (!hasConsented) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
@@ -61,6 +118,11 @@ function App() {
               <span>検索</span>
             </button>
           </div>
+          {error && (
+            <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6">
@@ -102,6 +164,8 @@ function App() {
               expenses={expenses}
               setExpenses={setExpenses}
               onComplete={calculateFinalSettlement}
+              error={error}
+              setError={setError}
             />
           )}
 
@@ -127,6 +191,11 @@ function App() {
               onSettlementsUpdate={setSettlements}
             />
           )}
+        </div>
+
+        <div className="mt-8 text-sm text-gray-500 text-center">
+          ※ メンバーの名前には個人を特定できる情報を入力しないでください<br />
+          ※ 生成したWCANコードに1週間アクセスが無い場合は、WCANに紐づく登録情報が消えますのでご注意ください
         </div>
       </div>
     </div>

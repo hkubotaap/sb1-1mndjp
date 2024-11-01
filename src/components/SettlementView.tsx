@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Copy, Check, ArrowLeft, RotateCcw } from 'lucide-react';
+import { Copy, Check, ArrowLeft, RotateCcw, Receipt } from 'lucide-react';
 import { Member, Expense, Settlement, RoundingMethod } from '../types';
 import RoundingControls from './RoundingControls';
 import { calculateSettlements, getRoundingDifference } from '../utils/calculations';
@@ -16,6 +16,11 @@ interface Props {
   onReset: () => void;
 }
 
+interface RoundingAdjustment {
+  memberId: string;
+  amount: number;
+}
+
 export default function SettlementView({
   settlements,
   members,
@@ -29,7 +34,7 @@ export default function SettlementView({
 }: Props) {
   const [copiedResults, setCopiedResults] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [roundingAdjusterId, setRoundingAdjusterId] = useState<string>();
+  const [roundingAdjustments, setRoundingAdjustments] = useState<RoundingAdjustment[]>([]);
 
   // 支払いサマリを計算
   const totalAmount = expenses.reduce((sum, exp) => sum + exp.amount, 0);
@@ -47,17 +52,15 @@ export default function SettlementView({
       members,
       expenses,
       roundingMethod,
-      roundingAdjusterId
+      roundingAdjustments
     );
     onSettlementsUpdate(newSettlements);
-  }, [roundingMethod, roundingAdjusterId]);
+  }, [roundingMethod, roundingAdjustments, members, expenses]);
 
-  // 端数処理方法が変更されたら最初のメンバーを端数負担者に設定
-  useEffect(() => {
-    if (roundingMethod !== 'floor' && !roundingAdjusterId && members.length > 0) {
-      setRoundingAdjusterId(members[0].id);
-    }
-  }, [roundingMethod]);
+  // 端数の分配が更新されたときの処理
+  const handleDistributionUpdate = (distributions: RoundingAdjustment[]) => {
+    setRoundingAdjustments(distributions);
+  };
 
   const copySettlements = async () => {
     if (settlements.length === 0) return;
@@ -71,11 +74,7 @@ export default function SettlementView({
         `${m.name}: ¥${(expensesByPayer[m.id] || 0).toLocaleString()}`
       ),
       '',
-      '【端数処理】',
-      `方法: ${roundingMethod === 'floor' ? '切り捨て' : roundingMethod === 'ceil' ? '切り上げ' : '四捨五入'}`,
-      roundingDifference > 0 ? `差額 ¥${roundingDifference} を ${members.find(m => m.id === roundingAdjusterId)?.name} が負担` : '',
-      '',
-      '【精算結果】',
+      '【精算方法】',
       ...settlements.map(s => 
         `${s.from} が ${s.to} に ¥${s.amount.toLocaleString()} を支払う`
       )
@@ -104,6 +103,7 @@ export default function SettlementView({
 
   return (
     <div className="space-y-6">
+      {/* ヘッダー */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
           <button
@@ -114,8 +114,29 @@ export default function SettlementView({
           </button>
           <h2 className="text-xl font-bold">精算結果</h2>
         </div>
+        <button
+          onClick={copySettlements}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+            copiedResults
+              ? 'bg-green-100 text-green-700'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          {copiedResults ? (
+            <>
+              <Check size={18} />
+              <span>コピーしました</span>
+            </>
+          ) : (
+            <>
+              <Copy size={18} />
+              <span>結果をコピー</span>
+            </>
+          )}
+        </button>
       </div>
 
+      {/* 支払い情報コード */}
       {paymentCode && (
         <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-lg">
           <div>
@@ -145,76 +166,79 @@ export default function SettlementView({
         </div>
       )}
 
-      <div>
-        <h3 className="text-sm font-medium text-gray-700 mb-2">支払いサマリ</h3>
-        <div className="space-y-2">
-          <div className="p-3 bg-gray-50 rounded-lg">
-            <div className="font-medium">合計金額</div>
-            <div className="text-2xl font-bold">¥{totalAmount.toLocaleString()}</div>
-          </div>
-          {members.map(member => (
-            <div key={member.id} className="p-3 bg-gray-50 rounded-lg">
-              <div className="font-medium">{member.name}</div>
-              <div className="text-xl">¥{(expensesByPayer[member.id] || 0).toLocaleString()}</div>
+      {/* メインコンテンツ */}
+      <div className="grid gap-6">
+        {/* 支払いサマリ */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            <Receipt size={20} />
+            <span>支払い状況</span>
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+              <div className="text-sm text-gray-500 mb-1">合計金額</div>
+              <div className="text-2xl font-bold">¥{totalAmount.toLocaleString()}</div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <RoundingControls
-        roundingMethod={roundingMethod}
-        onMethodChange={onRoundingMethodChange}
-        roundingDifference={roundingDifference}
-        members={members}
-        roundingAdjusterId={roundingAdjusterId}
-        onAdjusterChange={setRoundingAdjusterId}
-      />
-
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-sm font-medium text-gray-700">精算方法</h3>
-          <button
-            onClick={copySettlements}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              copiedResults
-                ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {copiedResults ? (
-              <>
-                <Check size={14} />
-                <span>コピーしました</span>
-              </>
-            ) : (
-              <>
-                <Copy size={14} />
-                <span>結果をコピー</span>
-              </>
-            )}
-          </button>
-        </div>
-        {settlements.length === 0 ? (
-          <p className="text-center py-8 text-gray-500">精算の必要はありません</p>
-        ) : (
-          <div className="space-y-2">
-            {settlements.map((settlement, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 bg-white rounded-lg shadow"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="font-medium">{settlement.from}</span>
-                  <span className="text-gray-500">→</span>
-                  <span className="font-medium">{settlement.to}</span>
-                </div>
-                <span className="font-bold">¥{settlement.amount.toLocaleString()}</span>
+            <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+              <div className="text-sm text-gray-500 mb-1">支払い回数</div>
+              <div className="text-2xl font-bold">{expenses.length}回</div>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {members.map(member => (
+              <div key={member.id} className="p-4 bg-white rounded-lg shadow-sm border border-gray-100">
+                <div className="text-sm text-gray-500 mb-1">{member.name}の支払い</div>
+                <div className="text-xl font-bold">¥{(expensesByPayer[member.id] || 0).toLocaleString()}</div>
               </div>
             ))}
           </div>
-        )}
+        </div>
+
+        {/* 端数処理設定 */}
+        <RoundingControls
+          roundingMethod={roundingMethod}
+          onMethodChange={onRoundingMethodChange}
+          roundingDifference={roundingDifference}
+          members={members}
+          onDistributionUpdate={handleDistributionUpdate}
+        />
+
+        {/* 精算方法 */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">精算方法</h3>
+          {settlements.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 bg-white rounded-lg shadow-sm border border-gray-100">
+              精算の必要はありません
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {settlements.map((settlement, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-100"
+                >
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <div className="font-medium">{settlement.from}</div>
+                      <div className="text-sm text-gray-500">支払う人</div>
+                    </div>
+                    <div className="text-gray-400">→</div>
+                    <div>
+                      <div className="font-medium">{settlement.to}</div>
+                      <div className="text-sm text-gray-500">受け取る人</div>
+                    </div>
+                  </div>
+                  <div className="text-xl font-bold">
+                    ¥{settlement.amount.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* フッターボタン */}
       <div className="flex gap-4 pt-4">
         <button
           onClick={onBack}
@@ -224,9 +248,10 @@ export default function SettlementView({
         </button>
         <button
           onClick={onReset}
-          className="flex-1 py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
         >
-          新しい割り勘を始める
+          <RotateCcw size={18} />
+          <span>新しい割り勘を始める</span>
         </button>
       </div>
     </div>

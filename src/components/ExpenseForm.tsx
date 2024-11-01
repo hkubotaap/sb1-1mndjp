@@ -7,6 +7,8 @@ interface ExpenseFormProps {
   expenses: Expense[];
   setExpenses: React.Dispatch<React.SetStateAction<Expense[]>>;
   onComplete: () => void;
+  error?: string;
+  setError: (error: string | undefined) => void;
 }
 
 export default function ExpenseForm({
@@ -14,16 +16,18 @@ export default function ExpenseForm({
   expenses,
   setExpenses,
   onComplete,
+  error,
+  setError,
 }: ExpenseFormProps) {
   const [newExpense, setNewExpense] = useState({
     date: new Date().toISOString().split('T')[0],
     payerId: '',
     amount: '',
+    remarks: '',
     beneficiaries: {} as Record<string, boolean>,
     splitType: 'equal' as 'equal' | 'multiply',
   });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const validateExpense = () => {
     if (!newExpense.payerId) {
@@ -41,7 +45,7 @@ export default function ExpenseForm({
       setError('対象者を1人以上選択してください');
       return false;
     }
-    setError(null);
+    setError(undefined);
     return true;
   };
 
@@ -61,6 +65,7 @@ export default function ExpenseForm({
               date: newExpense.date,
               payerId: newExpense.payerId,
               amount: Number(newExpense.amount),
+              remarks: newExpense.remarks.trim(),
               beneficiaryIds,
               splitType: newExpense.splitType,
             }
@@ -75,6 +80,7 @@ export default function ExpenseForm({
           date: newExpense.date,
           payerId: newExpense.payerId,
           amount: Number(newExpense.amount),
+          remarks: newExpense.remarks.trim(),
           beneficiaryIds,
           splitType: newExpense.splitType,
         },
@@ -85,10 +91,11 @@ export default function ExpenseForm({
       date: new Date().toISOString().split('T')[0],
       payerId: '',
       amount: '',
+      remarks: '',
       beneficiaries: {},
       splitType: 'equal',
     });
-    setError(null);
+    setError(undefined);
   };
 
   const startEditing = (expense: Expense) => {
@@ -97,13 +104,14 @@ export default function ExpenseForm({
       date: expense.date,
       payerId: expense.payerId,
       amount: expense.amount.toString(),
+      remarks: expense.remarks,
       beneficiaries: expense.beneficiaryIds.reduce((acc, id) => ({
         ...acc,
         [id]: true
       }), {}),
       splitType: expense.splitType,
     });
-    setError(null);
+    setError(undefined);
   };
 
   const cancelEditing = () => {
@@ -112,10 +120,11 @@ export default function ExpenseForm({
       date: new Date().toISOString().split('T')[0],
       payerId: '',
       amount: '',
+      remarks: '',
       beneficiaries: {},
       splitType: 'equal',
     });
-    setError(null);
+    setError(undefined);
   };
 
   const deleteExpense = (id: string) => {
@@ -168,6 +177,19 @@ export default function ExpenseForm({
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">備考</label>
+          <input
+            type="text"
+            value={newExpense.remarks}
+            onChange={(e) =>
+              setNewExpense({ ...newExpense, remarks: e.target.value })
+            }
+            placeholder="支払いの内容を入力（任意）"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
         </div>
 
         <div>
@@ -307,6 +329,11 @@ export default function ExpenseForm({
                 .map((id) => members.find((m) => m.id === id)?.name)
                 .join(', ')}
             </div>
+            {expense.remarks && (
+              <div className="text-sm text-gray-600">
+                備考: {expense.remarks}
+              </div>
+            )}
           </div>
         ))}
       </div>
